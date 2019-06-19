@@ -1,0 +1,29 @@
+---
+title: "HRS Data wrangling"
+author: "Brianna Bucknor"
+date: "June 4, 2019"
+output: html_document
+---
+
+```{r}
+```
+Create directory for data and import AA and European PGS
+```{r}
+HRSdataDir <- "C:/Users/Bri/Desktop/SRP project/"
+load(paste0(HRSdataDir,"PGENSCORE3A_R.RData")) #AA PGS
+load(paste0(HRSdataDir, "PGENSCORE3E_R.RData")) #European PGS
+load(paste0(HRSdataDir, "TRK2016TR_R.RData")) #tracker file
+```
+
+```{r}
+PGPH <- TRK2016TR_R [which(TRK2016TR_R$HHID == PGENSCORE3A_R$HHID & TRK2016TR_R$PN == PGENSCORE3A_R$PN),] #attempt 1
+PGPH <- TRK[which(HHID %in% PGENSCORE3A_R$HHID & PN %in% PGENSCORE3A_R$PN)] #attempt 2
+```
+
+attempt 3
+```{r}
+library(dplyr)
+PGS_pheno <- as.data.frame(TRK2016TR_R %>% filter(HHID %in% PGENSCORE3A_R$HHID))
+PGS_pheno2 <- as.data.frame(PGS_pheno %>% filter(PN %in% PGENSCORE3A_R$PN))
+```
+

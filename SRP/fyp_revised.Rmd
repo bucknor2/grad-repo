@@ -1,0 +1,122 @@
+---
+title: "DNAm/GE data for FYP"
+output: html_notebook
+---
+Install package biobase
+```{r}
+## try http:// if https:// URLs are not supported
+source("https://bioconductor.org/biocLite.R")
+biocLite("Biobase")
+```
+
+Set the directory and importing ComBat adjusted data
+```{r}
+DNHSdataDir <- "C:/Users/Bucknor2/Desktop/DNHS/"
+load(paste0(DNHSdataDir,"DNHS_ComBatAdjHT12_123.RData"))
+load(paste0(DNHSdataDir, "DNHS172_ComBatAdj_FullPheno.Rdata"))
+```
+Read in csv of genes found to be significant after eQTM
+```{r}
+eqtm <- read.csv("C:/Users/Bucknor2/Desktop/DNHS/DNHS_eQTM_ResidRPC_AA82_nom313.csv")
+```
+Assign gene names to "gene" then use grep function in a for loop to filter csv for each gene and assign them to their own data frame
+```{r}
+gene = c("CDK5R1","SGK1","HSP90AA1","STAT1","MAPK14","NCOA1","NFATC1","EP300","TBX21","AKT1","RELA","IFNG","MAPK1","BAX","JUN","VIPR1","TP53","PRKACB","TSG101","POU2F1","STAT5B","SMARCA4","CREBBP","FKBP5","GATA3","MAPK3","SUMO2","STAT5A","FOS","NFKB1","SUV420H1","FKBP4","PCK2","HDAC1","YWHAH","CDK5","MAPK9","SPI1","NR3C1","SMARCC1","TBP","IL4","GSK3B","IRF1","SMARCC2","CREB1","EGR1","SMARCD1","ICAM1","IL8","POMC")
+for (g in gene){
+  assign(paste0(g, sep=""),eqtm[grep(g, eqtm$symbol.reanno),])
+}
+```
+Create a list of the data frames and name them using the equal sign
+```{r}
+eqtm.df.list = list(CDK5R1	=	CDK5R1,SGK1	=	SGK1,HSP90AA1=	HSP90AA1,STAT1	=	STAT1,MAPK14	=	MAPK14,NCOA1	=	NCOA1,NFATC1	=	NFATC1,EP300	=	EP300,TBX21	=	TBX21,AKT1	=	AKT1,RELA	=	RELA,IFNG	=	IFNG,MAPK1	=	MAPK1,BAX	=	BAX,JUN	=	JUN,VIPR1	=	VIPR1,TP53	=	TP53,PRKACB	=	PRKACB,TSG101	=	TSG101,POU2F1	=	POU2F1,STAT5B	=	STAT5B,SMARCA4	=	SMARCA4,CREBBP	=	CREBBP,FKBP5	=	FKBP5,GATA3	=	GATA3,MAPK3	=	MAPK3,SUMO2	=	SUMO2,STAT5A	=	STAT5A,FOS	=	FOS,NFKB1	=	NFKB1,SUV420H1	=	SUV420H1,FKBP4	=	FKBP4,PCK2	=	PCK2,HDAC1	=	HDAC1,YWHAH	=	YWHAH,CDK5	=	CDK5,MAPK9	=	MAPK9,SPI1	=	SPI1,NR3C1	=	NR3C1,SMARCC1	=	SMARCC1,TBP	=	TBP,IL4	=	IL4,GSK3B	=	GSK3B,IRF1	=	IRF1,SMARCC2	=	SMARCC2,CREB1	=	CREB1,EGR1	=	EGR1,SMARCD1	=	SMARCD1,ICAM1	=	ICAM1,IL8	=	IL8, POMC = POMC)
+
+```
+Use lapply to subset all data frames using the same parameters. Here, I used the cpg column in each of the gene data frames to subset "combat_M2Row" for those specific cpgs of interest. This allows you to pull out the M values for all participants at each cpg of interest and also eliminate any duplicate cpgs. 
+```{r}
+res <-lapply(eqtm.df.list, function(x) as.data.frame(subset(combat_M2Row, rownames(combat_M2Row) %in% x$cpg)))
+
+```
+Transpose data
+```{r}
+Transposed <- lapply(res, function(x) as.data.frame(t(x)))
+```
+Read in phenodata from all DNHS respondents. Then subset it for the 172 respondents of interest. After that filter out the GAD variables of interest. 
+```{r}
+library(dplyr)
+PhenoDir <- read.csv("C:/Users/Bucknor2/Desktop/DNHS/DN170703_Uddin.csv")
+PhenoDir_172 <- as.data.frame(PhenoDir %>% filter(RESP %in% pheno172all450k$resp))
+pheno172gad <- select(PhenoDir_172, RESP, w1c1_gad10_life, w2c1_gad10_life, w2c2_gad10_life)
+colnames(pheno172gad)[1] <- "resp" #case sensitive. Needs to match in order to join the two data frames in the next block of code
+```
+Join pheno172all450k data frame with pheno172gad data frame then export it to a csv. This will be important for the next block of code. 
+Before merging the datasets, convert the "resp" varaible in "pheno172all450k" from a character to a numeric. This is because the join function cannot work on incompatible variable types (integer/character) and "resp" in "pheno172gad" is numeric. 
+```{r}
+setwd("C:/Users/Bucknor2/Desktop/DNHS")
+pheno172all450k$resp <-as.numeric(pheno172all450k$resp)
+pheno172_gad_450k <- as.data.frame (left_join(pheno172all450k, pheno172gad, by = "resp"))
+write.csv(pheno172_gad_450k, "phenogad.csv")
+```
+Add GAD data in
+The 172 450k respondents are either from w1c1, w2c1, or w2c2 but many have measures of lifetime GAD from all three (w1c1_gad10_life, w2c1_gad10_life, w2c2_gad10_life). In excel, use the columns "cohort" and "wave" in phenogad.csv to determine which of the three measurments should be used. Then put the value for the proper measurement into a new column named "GADlife." For example, if resp 3's 450k data was from w2c2 but they had GAD data at w1c1_gad10_life, w2c1_gad10_life, and w2c2_gad10_life only the value at w2c2_gad10_life should be transfered to the "GADlife column." create a file containing the columns "resp" and "GADlife" and name it "phenogad".
+```{r}
+phenogad <- read.csv("C:/Users/Bucknor2/Desktop/DNHS/phenogad_r.csv")
+```
+Merge the data set using "resp" as the joiner
+```{r}
+pheno172all450k <- as.data.frame (left_join(pheno172all450k, phenogad, by = "resp"))
+```
+Load package dplyr.Combine transposed data with phenotype, then create a new variable for resilience using if_else function. If PTSDlife, MDDlife, and alld_phq are 0 (meaning no lifetime history of disorder) then put a 1 in resilient column to indicate individual is resilient, if else put a 0. Then rearrange column so that resilient column is not at the end but after the mental health history variables. Lastly, subset dataset for variables of interest.
+```{r}
+library(dplyr)
+add.pheno <- lapply(Transposed, function(x) bind_cols(pheno172all450k, x))
+resiliency <- lapply(add.pheno, function(x) mutate(x, resilient = if_else((PTSDlife == 0) & (MDDlife == 0) & (alld_phq == 0) & (GADlife == 0),1,0)))
+assign_case <- lapply(resiliency, function(x) mutate(x, case = 1:172))
+rearrange <- lapply(assign_case, function(x) x %>% select(case,Basename,SampleID,resp,cohort,wave,bloodid,SentrixBarcode_A,SentrixPosition_A,Row,Column,Plate,PlateOrder,Set,Sex,Age,Smokinglife,race,sum_trauma,PTSDlife,PTSDpy,PTSDpm,MDDlife,pymd_phq,pyalld_phq,pmmd_phq,pmalld_phq,alld_phq, resilient, everything()))
+subset <- lapply(rearrange, function(x) select(x, -cohort,-wave,-bloodid,-SentrixBarcode_A,-SentrixPosition_A,-Row,-Column,-Plate,-PlateOrder,-Set,-sum_trauma,-PTSDlife,-PTSDpy,-PTSDpm,-MDDlife,-pymd_phq,-pyalld_phq,-pmmd_phq,-pmalld_phq,-alld_phq,-CA,-CAOrd,-CAQuart,-test_date,-group,-CAOrd_factor,-Comp.1,-Comp.2,-Comp.3,-Comp.4,-Comp.5, -GADlife))
+```
+Use for loop to export datasets in "subset" to their own individual csv files
+```{r}
+setwd("C:/Users/Bucknor2/Desktop/DNHS/Gene Subsets")
+for (i in seq_along(subset)) {
+  filename = paste0("DNHS_450k_mval_",names(subset)[i], ".csv") 
+  write.csv(subset[[i]], filename)
+}
+```
+Use for loop to export datasets in "subset" to their own individual SPSS files
+```{r}
+library(haven)
+setwd("C:/Users/Bucknor2/Desktop/DNHS/Gene Subsets/SPSS")
+for (i in seq_along(subset)) {
+  filename = paste0("DNHS_450k_mval_",names(subset)[i], ".sav") 
+  write_sav(subset[[i]], filename)
+}
+```
+Use for loop to export datasets in "subset" to their own individual SAS files
+```{r}
+library(haven)
+setwd("C:/Users/Bucknor2/Desktop/DNHS/Gene Subsets/SAS")
+for (i in seq_along(subset)) {
+  filename = paste0("DNHS_450k_mval_",names(subset)[i], ".sas7bdat") 
+  write_sas(subset[[i]], filename)
+}
+```
+
+```{r}
+library(foreign)
+setwd("C:/Users/Bucknor2/Desktop/DNHS/Gene Subsets/SAS")
+for (i in seq_along(subset)) {
+  filename = paste0("DNHS_450k_mval_",names(subset)[i], ".sas7bdat") 
+  write.foreign(subset[[i]], filename, package = SAS)
+}
+```
+
+
+
+```
+Using the COUNTIF function in excel, I determined:
+
+N = 45 resilient individuals,
+N = 126 susceptible individuals,
+N = 1 NA individual,
+
+

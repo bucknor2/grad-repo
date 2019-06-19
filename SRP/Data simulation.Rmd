@@ -1,0 +1,30 @@
+---
+title: "Data simulation for pre-registration"
+author: "Brianna Bucknor"
+date: "June 14, 2019"
+output: html_document
+---
+Determine number of participants and define model terms
+```{r}
+n_total = 15000
+phenos = c(“resilience”)  #phenotypes
+	# in actual analysis, resilience = resid(lm(depression_cesd ~ stressful_life_events))
+pgs = c(paste0("pgs",seq(1:5))) #polygenic scores
+pcs = c(paste0("pc",seq(1:5)))	#ancestry principal components
+d = matrix(NA, nrow = n_total, ncol=length(phenos)+length(pgs)+length(pcs))
+d = apply(d,2,function(x){rnorm(n_total)})
+```
+
+Create age & sex column in created data set (i.e., "d")
+```{r}
+d$sex = rbinom(n_total, 1, 0.456)	# last number is proportion of 1s versus 0s (can get from documentation, or just make up)
+d$age = runif(n_total, min = 50, max = 83)	# age range (50+)
+```
+
+Perform regression analysis for each polygenic score, e.g. starting with pgs1
+```{r}
+lm(resilience ~ age + sex + pcs + pgs1, data = d)
+```
+
+
+
