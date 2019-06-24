@@ -4,26 +4,77 @@ author: "Brianna Bucknor"
 date: "June 14, 2019"
 output: html_document
 ---
-Determine number of participants and define model terms
+lifetime trauma: 10 questions on a scale of 1-5
+```{r}
+set.seed(15000)
+lifetime_trauma <- round(runif(n = 15000, min = 10, max = 50), digits = 0)
+```
+
+Stressful life events: 5 questions on a scale of 1-5
+```{r}
+set.seed(15000)
+SLE <- round(runif(n = 15000, min = 5, max = 20), digits = 0)
+```
+
+Combination of lifetime truama (score range: 10-50) and stessful life events (score range: 5-20). 
+```{r}
+set.seed(15000)
+trauma_stress <- round(runif(n = 15000, min = 15, max = 70), digits = 0)
+```
+
+Q27g,Q27h,Q27i,Q27l,Q27o,Q27p,Q27q,Q27r from Q27 in LB questionaire map onto HRS core depressive symptoms(CES-D). Scale of 1-5 (Score range: 8- 40). Can be averaged over the 8 items
+```{r}
+set.seed(15000)
+Depression <- round(runif(n = 15000, min = 8, max = 40))
+```
+
+Simulate residuals
+```{r}
+resilience <- as.data.frame(resid(lm(Depression ~trauma_stress)))
+colnames(resilience) <- c("resilience")
+```
+
+
 ```{r}
 n_total = 15000
-phenos = c(“resilience”)  #phenotypes
-	# in actual analysis, resilience = resid(lm(depression_cesd ~ stressful_life_events))
 pgs = c(paste0("pgs",seq(1:5))) #polygenic scores
 pcs = c(paste0("pc",seq(1:5)))	#ancestry principal components
-d = matrix(NA, nrow = n_total, ncol=length(phenos)+length(pgs)+length(pcs))
+d = matrix(NA, nrow = n_total, ncol=length(pgs)+length(pcs))
 d = apply(d,2,function(x){rnorm(n_total)})
+colnames(d)<- c("pc1", "pc2", "pc3", "pc4", "pc5", "pgs1","pgs2","pgs3","pgs4","pgs5")
+d<-as.data.frame(d)
+library(dplyr)
+d = dplyr:: bind_cols(resilience,d)
 ```
 
 Create age & sex column in created data set (i.e., "d")
 ```{r}
 d$sex = rbinom(n_total, 1, 0.456)	# last number is proportion of 1s versus 0s (can get from documentation, or just make up)
 d$age = runif(n_total, min = 50, max = 83)	# age range (50+)
+d$height = runif(n_total, min = 50.25, max = 78.75) #retrieved from the 2006 Section I: physical measures 
+d$race = rbinom(n_total,1,0.8) # 0 = AA 1 = White (~3000 AA & 12000 White)
+```
+
+```{r}
+for (p in pgs){
+  assign(paste0(p, sep =""),subset(d, select = c("resilience", "age","sex", "height", "pc1", "pc2", "pc3","pc4", "pc5",p)))
+}
+pgs.list = list( pgs1= pgs1, pgs2 = pgs2, pgs3 = pgs3, pgs4 = pgs4, pgs5 = pgs5)
 ```
 
 Perform regression analysis for each polygenic score, e.g. starting with pgs1
 ```{r}
-lm(resilience ~ age + sex + pcs + pgs1, data = d)
+model = lapply(pgs.list, function(x)lm(resilience ~ age + sex + height + pc1 + pc2 + pc3 + pc4 + pc5 + x[[10]], data = x))
+```
+
+
+```{r}
+for (i in seq_along(model)){
+  filename = paste0(names(model)[[i]],"_model", ".txt")
+  sink(file= filename)
+  print(colnames(pgs.list[[i]])[10])
+  print(summary(model[[i]]))
+  }
 ```
 
 
