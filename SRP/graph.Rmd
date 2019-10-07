@@ -1,0 +1,83 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+library(dotwhisker)
+library(broom)
+library(dplyr)
+library(ggplot2)
+```
+
+```{r}
+# Create list of brackets (label, topmost included predictor, bottommost included predictor)
+three_brackets <- list(c("Lifetime Trauma", "LB037A", "LB037G"), 
+                       c("SLE", "LB038A", "LB038F"),
+                       c("Ongoing Chronic Stressor", "LB040A_A", "LB040A_H"))
+{dwplot(resilience,
+        vline = geom_vline(xintercept = 0, colour = "grey80", linetype = 1),
+          dot_args = list(color = "orange"),
+       whisker_args = list(color = "blue"))+labs(title ="Operationalization of Resilience",subtitle = "Resilience was operationalized as negative affect residualized over gender,                age, race, and item level endorsements of stressful life experiences. 
+The current figure is the output of the regression from which the residuals were obtained.")+
+  theme(text = element_text(size=27),panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+panel.background = element_blank(),axis.line = element_line(colour = "black"),plot.title = element_text(size = 19, margin = margin(b = 10)),plot.subtitle = element_text(size = 10, color = "darkslategrey", margin = margin(b = 25)),plot.caption = element_text(size = 8, margin = margin(t = 10), color = "grey70", hjust = 0)) + xlab("Coefficient Estimate") + ylab("")}
+``` 
+
+```{r}
+dwplot(model.AA,order_vars = "PC1_5A")
+```
+
+
+```{r}
+model.AA1 = tidy(model.AA[[1]])
+model.AA1_1 = model.AA1[2,2]
+model.AA1_grp<- tidy(model.AA1) %>% filter(term != "(intercept)") %>% mutate(model="model 1")
+```
+
+```{r}
+#dotchart(AA_model_coeff_sd)
+dotchart2(Standardized_PGS_AA,pch=21,lcolor = "blue")
+```
+
+```{r}
+library(Hmisc)
+dotchart2()
+```
+```{r}
+library(ggpubr)
+ggerrorplot(Standardized_PGS, x="Coefficient", y="PGS",desc_stat = "mean_ci")
+```
+
+```{r}
+ggplot(Standardized_PGS_AA, aes(x=Coefficient,y=PGS))+geom_point(color="blue")+
+  theme_minimal()+
+        theme(axis.title = element_blank(),
+              panel.grid.major.x = element_blank(),
+              panel.grid.minor = element_blank())
+```
+
+```{r}
+ggplot(Standardized_PGS_E, aes(x=Coefficient,y=PGS))+geom_point(color="orange",size=4)+
+  theme_minimal()+geom_errorbarh(data= Standardized_PGS_E, aes(xmin= Coefficient-SE, xmax=Coefficient+SE,height=0),color="orange")+theme(axis.title = element_blank(),panel.grid.major.x = element_blank(),panel.grid.minor = element_blank(),plot.title = element_text(size = 30, margin = margin(b = 10)),plot.subtitle = element_text(size = 17, color = "darkslategrey", margin = margin(b = 25)),plot.caption = element_text(size = 8, margin = margin(t = 10), color = "grey70", hjust = 0),text = element_text(size=27))+ geom_point(data= Standardized_PGS_AA, aes(x=Coefficient, y= PGS), color="navy",size=4)+geom_errorbarh(data= Standardized_PGS_AA, aes(xmin= Coefficient-SE, xmax=Coefficient+SE,height=0),colour="navy")+geom_vline(xintercept = 0)
+```
+
+```{r}
+ggplot(NGV_AA, aes(x=Coefficient,y=NGV))+geom_point(color="gray",size=4)+
+  theme_minimal()+scale_x_continuous(c(-0.25,0.5))+geom_errorbarh(data= NGV_AA, aes(xmin= Coefficient-SE, xmax=Coefficient+SE,height=0),color="gray")+theme(axis.title = element_blank(),panel.grid.major.x = element_blank(),panel.grid.minor = element_blank(),plot.title = element_text(size = 30, margin = margin(b = 10)),plot.subtitle = element_text(size = 17, color = "darkslategrey", margin = margin(b = 25)),plot.caption = element_text(size = 8, margin = margin(t = 10), color = "grey70", hjust = 0),text = element_text(size=27))+geom_point(data=NGV_EA,color="black",size=4)+geom_errorbarh(data= NGV_EA, aes(xmin= Coefficient-SE, xmax=Coefficient+SE,height=0),color="black")+geom_vline(xintercept = 0)
+```
+
+
+```{r}
+library(apaTables)
+apa.1way.table(pvalues_ng_AA)
+```
+
+```{r}
+```
+
+> ggplot(Standardized_PGS_E, aes(x=Coefficient,y=PGS))+geom_point(color="orange",size=4)+
++     theme_minimal()+geom_errorbarh(data= Standardized_PGS_E, aes(xmin= Coefficient-SE, xmax=Coefficient+SE,height=0),color="orange")+theme(axis.title = element_blank(),panel.grid.major.x = element_blank(),panel.grid.minor = element_blank(),plot.title = element_text(size = 30, margin = margin(b = 10)),plot.subtitle = element_text(size = 17, color = "darkslategrey", margin = margin(b = 25)),plot.caption = element_text(size = 8, margin = margin(t = 10), color = "grey70", hjust = 0),text = element_text(size=27))+ geom_point(data= Standardized_PGS_AA, aes(x=Coefficient, y= PGS), color="navy",size=4)+geom_errorbarh(data= Standardized_PGS_AA, aes(xmin= Coefficient-SE, xmax=Coefficient+SE,height=0),colour="navy")+geom_vline(xintercept = 0)+xlim(-0.3,0.3)
+
+> ggplot(NGV_AA, aes(x=Coefficient,y=NGV))+geom_point(color="navy",size=4)+
++     theme_minimal()+geom_errorbarh(data= NGV_AA, aes(xmin= Coefficient-SE, xmax=Coefficient+SE,height=0),color="navy")+theme(axis.title = element_blank(),panel.grid.major.x = element_blank(),panel.grid.minor = element_blank(),plot.title = element_text(size = 30, margin = margin(b = 10)),plot.subtitle = element_text(size = 17, color = "darkslategrey", margin = margin(b = 25)),plot.caption = element_text(size = 8, margin = margin(t = 10), color = "grey70", hjust = 0),text = element_text(size=27))+geom_point(data=NGV_EA,color="orange",size=4)+geom_errorbarh(data= NGV_EA, aes(xmin= Coefficient-SE, xmax=Coefficient+SE,height=0),color="orange")+geom_vline(xintercept = 0)+scale_x_continuous(breaks = c(-0.6,-0.4, -0.2,0.0,0.2,0.4,0.6))
