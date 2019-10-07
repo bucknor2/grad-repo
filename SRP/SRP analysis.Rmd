@@ -1,0 +1,623 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+```{r}
+HRSdataDir <- "C:/Users/Bri/Documents/grad-repo/grad-repo/SRP/"
+load(paste0(HRSdataDir, "SRP_DATASET_FINAL_2.RData"))
+library(dplyr)
+```
+
+calculate age. Note (because you will freak out and forget): it is the age they were at the time they did the questionaire
+```{r}
+SRP_DATASET_FINAL$AGE = paste0(SRP_DATASET_FINAL$YEAR - SRP_DATASET_FINAL$BIRTHYR)
+```
+
+lifetime trauma: 7 items (Q37a - Q37g) (Scale: 1= Yes, 5 = No)
+```{r}
+LFT = SRP_DATASET_FINAL[c(3,5,6,343,263,265,267,269,271,273,275)]
+colnames(LFT)
+colMeans(is.na(LFT))
+```
+
+Endorsement Rate
+```{r}
+participants = nrow(LFT)
+colSums(LFT==1,na.rm = TRUE)
+colSums(LFT==1,na.rm = TRUE)/(participants)>0.99
+#LFT <- select(LFT,-$) #if any of the items are "TRUE", use this line of code to reomve the item from the dataset
+```
+
+Stressful life events: 6 items (Q38-Q38f) (Scale: 1 = Yes, 5 = No)
+```{r}
+SLE = SRP_DATASET_FINAL[c(3,284,286,288,290,292,294)]
+colnames(SLE)
+```
+Endorsement Rate
+```{r}
+colSums(SLE==1,na.rm = TRUE)
+colSums(SLE==1,na.rm = TRUE)/(participants)>0.99
+#SLE <- select(SLE,-$) #if any of the items are "TRUE", use this line of code to reomve the item from the dataset
+```
+
+Ongoing chronic stressors: 8 items (Q40a_a - Q40a_h)(Scale: 1 = No, didn't happen, 2 = Yes, but not upsetting, 3 = Yes, somewhat upsetting, 4 = Yes, very upsetting)
+```{r}
+OCS = SRP_DATASET_FINAL[c(3,305:312)]
+colnames(OCS)
+```
+
+Endorsement Rate
+```{r}
+colSums(OCS==1,na.rm = TRUE)
+colSums(OCS==1,na.rm = TRUE)/(participants)>0.99
+#OCS <- select(OCS,-$) #if any of the items are "TRUE", use this line of code to reomve the item from the dataset
+```
+
+PANAS: 25 item (Q27a-Q27y)(Scale: 1 = Very much, 2 = Quite a bit, 3 = Moderately, 4 = A little, 5 = Not at all). Reverse coded as per documentation.
+```{r}
+PANAS = SRP_DATASET_FINAL[c(3,139:163)]
+colnames(PANAS)
+PANAS_NA <- select(PANAS,LB027A, LB027B, LB027E, LB027I, LB027J, LB027L, LB027M, LB027N,LB027O,LB027R, LB027S,LB027W)
+PANAS_PA <- select(PANAS,HHID_PN.x,LB027C, LB027D, LB027F, LB027G, LB027H, LB027K, LB027P, LB027Q, LB027T,LB027U, LB027V, LB027X,LB027Y)
+PANAS_NA = 6 - PANAS_NA #reverse code
+PANAS <- bind_cols(PANAS_PA,PANAS_NA)
+```
+
+Endorsement Rate
+```{r}
+colSums(PANAS==1,na.rm = TRUE)
+colSums(PANAS==1,na.rm = TRUE)/(participants)>0.99
+#PANAS <- select(PANAS,-$) #if any of the items are "TRUE", use this line of code to reomve the item from the dataset
+```
+
+Create dataset for all the phenos. Address missingness
+```{r}
+Phenos <- left_join(LFT,SLE,by="HHID_PN.x")
+Phenos <- left_join(Phenos,OCS, by = "HHID_PN.x")
+Phenos <- left_join(Phenos,PANAS, by = "HHID_PN.x")
+Phenos$AGE <- as.numeric(as.character(Phenos$AGE))
+colMeans(is.na(Phenos))>0.05
+```
+
+Scoring PANAS.
+```{r}
+Phenos$PANAS = rowMeans(PANAS[,c("LB027A", "LB027B", "LB027C", "LB027D", "LB027E", "LB027F", "LB027G", "LB027H", "LB027I","LB027J", "LB027K", "LB027L","LB027M","LB027N", "LB027O", "LB027P", "LB027Q", "LB027R", "LB027S", "LB027T", "LB027U", "LB027V","LB027W", "LB027X","LB027Y")],na.rm = TRUE)
+Phenos <- Phenos[-c(26:50)]
+names(Phenos)[names(Phenos) == 'HHID_PN.x'] <- 'HHID_PN'
+```
+
+```{r}
+complete = na.omit(Phenos)
+resilience <- lm(PANAS~.-HHID_PN, data=complete)
+resilience_resid <- as.data.frame(resid(resilience))
+colnames(resilience_resid) <- c("resilience")
+res_data = bind_cols(complete,resilience_resid)
+res_data = select(res_data,HHID_PN , resilience)
+```
+
+```{r}
+PGS_data = inner_join(SRP_DATASET_PGS_A,res_data,by="HHID_PN")
+d_E = filter(PGS_data,group=="EA")
+d_AA = filter(PGS_data, group=="AA")
+```
+
+```{r}
+pgs = c("PGS3_HEIGHT_GIANT14","PGS3_WC_GIANT15","PGS3_AD_IGAP13", "PGS3_GENCOG_CHRG15", "PGS3_SCZ_PGC14","PGS3_EVRSMK_TAG10","PGS3_WELLB_SSGAC16","PGS3_NEURO_SSGAC16","PGS3_DPSYMP_SSGAC16","PGS3_CPD_TAG10","PGS3_CAD_CARDIOGR11","PGS3_MI_CARDIOGR15","PGS3_T2D_DIAGRAM12","PGS3_ADHD_PGC17","PGS3_AUTISM_PGC17","PGS3_BIP_PGC11","PGS3_XDISORDERPGC13","PGS3_MENARCHE_RPG14","PGS3_MENOPAUS_RPG15","PGS3_CRTSL_CORNET14","PGS3_EXTRAV_GPC17","PGS3_AB_BROAD17","PGS3_EDU3_SSGAC18","PGS3_OCD_IOCDF17","PGS3_AFBC_SOCGEN16", "PGS3_AFBF_SOCGEN16", "PGS3_AFBM_SOCGEN16","PGS3_MDD2_PGC18", "PGS3_PTSDAA_PGC18", "PGS3_PTSDEA_PGC18", "PGS3_PTSDC_PGC18","PGS3_ANXFS_ANGST16")
+```
+
+
+Use a for loop to start setting up the model to run the regression on. Here, each pgs of interest is being joined up with the columns needed for the model and grouped into a list. each item in the list is then named to match the pgs of interest. 
+```{r}
+for (p in pgs){
+  assign(paste0(p, sep =""),subset(d_AA, select = c("resilience", "PC1_5A", "PC1_5B", "PC1_5C", "PC1_5D", "PC1_5E",p)))
+}
+pgs.list.AA = list(PGS3_HEIGHT_GIANT14=	PGS3_HEIGHT_GIANT14,
+PGS3_WC_GIANT15=	PGS3_WC_GIANT15,
+PGS3_AD_IGAP13=	PGS3_AD_IGAP13,
+PGS3_GENCOG_CHRG15 =	PGS3_GENCOG_CHRG15,
+PGS3_SCZ_PGC14 =	PGS3_SCZ_PGC14,
+PGS3_EVRSMK_TAG10=	PGS3_EVRSMK_TAG10,
+PGS3_WELLB_SSGAC16=	PGS3_WELLB_SSGAC16,
+PGS3_NEURO_SSGAC16=	PGS3_NEURO_SSGAC16,
+PGS3_DPSYMP_SSGAC16=	PGS3_DPSYMP_SSGAC16,
+PGS3_CPD_TAG10=	PGS3_CPD_TAG10,
+PGS3_CAD_CARDIOGR11=	PGS3_CAD_CARDIOGR11,
+PGS3_MI_CARDIOGR15=	PGS3_MI_CARDIOGR15,
+PGS3_T2D_DIAGRAM12=	PGS3_T2D_DIAGRAM12,
+PGS3_ADHD_PGC17=	PGS3_ADHD_PGC17,
+PGS3_AUTISM_PGC17=	PGS3_AUTISM_PGC17,
+PGS3_BIP_PGC11=	PGS3_BIP_PGC11,
+PGS3_XDISORDERPGC13=	PGS3_XDISORDERPGC13,
+PGS3_MENARCHE_RPG14=	PGS3_MENARCHE_RPG14,
+PGS3_MENOPAUS_RPG15=	PGS3_MENOPAUS_RPG15,
+PGS3_CRTSL_CORNET14=	PGS3_CRTSL_CORNET14,
+PGS3_EXTRAV_GPC17=	PGS3_EXTRAV_GPC17,
+PGS3_AB_BROAD17=	PGS3_AB_BROAD17,
+PGS3_EDU3_SSGAC18=	PGS3_EDU3_SSGAC18,
+PGS3_OCD_IOCDF17=	PGS3_OCD_IOCDF17,
+PGS3_AFBC_SOCGEN16=	PGS3_AFBC_SOCGEN16,
+PGS3_AFBF_SOCGEN16 =	PGS3_AFBF_SOCGEN16,
+PGS3_AFBM_SOCGEN16 =	PGS3_AFBM_SOCGEN16,
+PGS3_MDD2_PGC18=	PGS3_MDD2_PGC18,
+PGS3_PTSDAA_PGC18 =	PGS3_PTSDAA_PGC18,
+PGS3_PTSDEA_PGC18 =	PGS3_PTSDEA_PGC18,
+PGS3_PTSDC_PGC18 =	PGS3_PTSDC_PGC18,
+PGS3_ANXFS_ANGST16=	PGS3_ANXFS_ANGST16)
+```
+
+```{r}
+for (p in pgs){
+  assign(paste0(p, sep =""),subset(d_E, select = c("resilience", "PC1_5A", "PC1_5B", "PC1_5C", "PC1_5D", "PC1_5E",p)))
+}
+pgs.list.E = list(PGS3_HEIGHT_GIANT14=	PGS3_HEIGHT_GIANT14,
+PGS3_WC_GIANT15=	PGS3_WC_GIANT15,
+PGS3_AD_IGAP13=	PGS3_AD_IGAP13,
+PGS3_GENCOG_CHRG15 =	PGS3_GENCOG_CHRG15,
+PGS3_SCZ_PGC14 =	PGS3_SCZ_PGC14,
+PGS3_EVRSMK_TAG10=	PGS3_EVRSMK_TAG10,
+PGS3_WELLB_SSGAC16=	PGS3_WELLB_SSGAC16,
+PGS3_NEURO_SSGAC16=	PGS3_NEURO_SSGAC16,
+PGS3_DPSYMP_SSGAC16=	PGS3_DPSYMP_SSGAC16,
+PGS3_CPD_TAG10=	PGS3_CPD_TAG10,
+PGS3_CAD_CARDIOGR11=	PGS3_CAD_CARDIOGR11,
+PGS3_MI_CARDIOGR15=	PGS3_MI_CARDIOGR15,
+PGS3_T2D_DIAGRAM12=	PGS3_T2D_DIAGRAM12,
+PGS3_ADHD_PGC17=	PGS3_ADHD_PGC17,
+PGS3_AUTISM_PGC17=	PGS3_AUTISM_PGC17,
+PGS3_BIP_PGC11=	PGS3_BIP_PGC11,
+PGS3_XDISORDERPGC13=	PGS3_XDISORDERPGC13,
+PGS3_MENARCHE_RPG14=	PGS3_MENARCHE_RPG14,
+PGS3_MENOPAUS_RPG15=	PGS3_MENOPAUS_RPG15,
+PGS3_CRTSL_CORNET14=	PGS3_CRTSL_CORNET14,
+PGS3_EXTRAV_GPC17=	PGS3_EXTRAV_GPC17,
+PGS3_AB_BROAD17=	PGS3_AB_BROAD17,
+PGS3_EDU3_SSGAC18=	PGS3_EDU3_SSGAC18,
+PGS3_OCD_IOCDF17=	PGS3_OCD_IOCDF17,
+PGS3_AFBC_SOCGEN16=	PGS3_AFBC_SOCGEN16,
+PGS3_AFBF_SOCGEN16 =	PGS3_AFBF_SOCGEN16,
+PGS3_AFBM_SOCGEN16 =	PGS3_AFBM_SOCGEN16,
+PGS3_MDD2_PGC18=	PGS3_MDD2_PGC18,
+PGS3_PTSDAA_PGC18 =	PGS3_PTSDAA_PGC18,
+PGS3_PTSDEA_PGC18 =	PGS3_PTSDEA_PGC18,
+PGS3_PTSDC_PGC18 =	PGS3_PTSDC_PGC18,
+PGS3_ANXFS_ANGST16=	PGS3_ANXFS_ANGST16)
+```
+
+Use lapply to perform regression on all the models set up in pgs.list
+```{r}
+model.AA = lapply(pgs.list.AA, function(x)lm(resilience ~ x[[7]]+ PC1_5A + PC1_5B + PC1_5C + PC1_5D + PC1_5E, data = x))
+model.E = lapply(pgs.list.E, function(x)lm(resilience ~ x[[7]]+ PC1_5A + PC1_5B + PC1_5C + PC1_5D + PC1_5E, data = x))
+``` 
+
+```{r}
+PGS_AA_MEFF <- dplyr::select(d_AA,PGS3_HEIGHT_GIANT14,
+PGS3_WC_GIANT15,
+PGS3_AD_IGAP13,
+PGS3_GENCOG_CHRG15 ,
+PGS3_SCZ_PGC14 ,
+PGS3_EVRSMK_TAG10,
+PGS3_WELLB_SSGAC16,
+PGS3_NEURO_SSGAC16,
+PGS3_DPSYMP_SSGAC16,
+PGS3_CPD_TAG10,
+PGS3_CAD_CARDIOGR11,
+PGS3_MI_CARDIOGR15,
+PGS3_T2D_DIAGRAM12,
+PGS3_ADHD_PGC17,
+PGS3_AUTISM_PGC17,
+PGS3_BIP_PGC11,
+PGS3_XDISORDERPGC13,
+PGS3_MENARCHE_RPG14,
+PGS3_MENOPAUS_RPG15,
+PGS3_CRTSL_CORNET14,
+PGS3_EXTRAV_GPC17,
+PGS3_AB_BROAD17,
+PGS3_EDU3_SSGAC18,
+PGS3_OCD_IOCDF17,
+PGS3_AFBC_SOCGEN16,
+PGS3_AFBF_SOCGEN16 ,
+PGS3_AFBM_SOCGEN16 ,
+PGS3_MDD2_PGC18,
+PGS3_PTSDAA_PGC18 ,
+PGS3_PTSDEA_PGC18 ,
+PGS3_PTSDC_PGC18 ,
+PGS3_ANXFS_ANGST16)
+```
+
+```{r}
+PGS_E_MEFF <- dplyr::select(d_E,PGS3_HEIGHT_GIANT14,
+PGS3_WC_GIANT15,
+PGS3_AD_IGAP13,
+PGS3_GENCOG_CHRG15 ,
+PGS3_SCZ_PGC14 ,
+PGS3_EVRSMK_TAG10,
+PGS3_WELLB_SSGAC16,
+PGS3_NEURO_SSGAC16,
+PGS3_DPSYMP_SSGAC16,
+PGS3_CPD_TAG10,
+PGS3_CAD_CARDIOGR11,
+PGS3_MI_CARDIOGR15,
+PGS3_T2D_DIAGRAM12,
+PGS3_ADHD_PGC17,
+PGS3_AUTISM_PGC17,
+PGS3_BIP_PGC11,
+PGS3_XDISORDERPGC13,
+PGS3_MENARCHE_RPG14,
+PGS3_MENOPAUS_RPG15,
+PGS3_CRTSL_CORNET14,
+PGS3_EXTRAV_GPC17,
+PGS3_AB_BROAD17,
+PGS3_EDU3_SSGAC18,
+PGS3_OCD_IOCDF17,
+PGS3_AFBC_SOCGEN16,
+PGS3_AFBF_SOCGEN16 ,
+PGS3_AFBM_SOCGEN16 ,
+PGS3_MDD2_PGC18,
+PGS3_PTSDAA_PGC18 ,
+PGS3_PTSDEA_PGC18 ,
+PGS3_PTSDC_PGC18 ,
+PGS3_ANXFS_ANGST16)
+```
+
+Multiple test correction
+```{r}
+source('https://osf.io/ws6xc/download')
+0.05/meff(PGS_AA_MEFF)
+```
+
+```{r}
+0.05/meff(PGS_E_MEFF)
+```
+
+export results of regression as a txt file
+```{r}
+for (i in seq_along(model.AA)){
+  filename = paste0(names(model.AA)[[i]],"_model_AA", ".txt")
+  sink(file= filename)
+  print(paste0("X[[7]]=", colnames(pgs.list.AA[[i]])[7]))  
+  print(summary(model.AA[[i]]))
+  sink()
+}
+```
+
+```{r}
+for (i in seq_along(model.E)){
+  filename = paste0(names(model.E)[[i]],"_model_E", ".txt")
+  sink(file= filename)
+  print(paste0("X[[10]]=", colnames(pgs.list.E[[i]])[10]))
+  print(summary(model.E[[i]]))
+  sink()
+}
+```
+official
+```{r}
+pvalues_AA = lapply(model.AA,function(x)summary(x)$coefficients[2,4])
+pvalues_AA <- as.data.frame(pvalues_AA)
+pvalues_AA <- t(pvalues_AA)
+pvalues_AA<0.001640123
+```
+
+```{r}
+pvalues_E = lapply(model.E,function(x)summary(x)$coefficients[2,4])
+pvalues_E <- as.data.frame(pvalues_E)
+pvalues_E <- t(pvalues_E)
+pvalues_AA<0.001589152
+```
+
+official
+```{r}
+effect_size = lapply(model.AA,function(x)summary(x)$r.squared)
+effect_size = as.data.frame(effect_size)
+effect_size = t(effect_size)
+```
+
+```{r}
+library(QuantPsyc)
+AA_model_coeff<-lapply(model.AA, function(x)lm.beta(x))#get standardized beta
+AA_model_coeff_sd <- lapply(AA_model_coeff,function(x)x[[1]])
+AA_model_coeff_sd <- as.data.frame(AA_model_coeff_sd)
+AA_model_coeff_sd <- t(AA_model_coeff_sd)
+```
+
+```{r}
+E_model_coeff<-lapply(model.E, function(x)lm.beta(x))#get standardized beta
+E_model_coeff_sd <- lapply(E_model_coeff,function(x)x[[1]])
+E_model_coeff_sd <- as.data.frame(E_model_coeff_sd)
+E_model_coeff_sd <- t(E_model_coeff_sd)
+```
+
+```{r}
+AA_model_SE <- lapply(AA_model_coeff,function(x)x[[2]])
+AA_model_SE <- as.data.frame(AA_model_coeff_sd)
+```
+
+```{r}
+E_model_SE <- lapply(E_model_coeff,function(x)x[[2]])
+E_model_SE <- as.data.frame(E_model_coeff_sd)
+```
+
+```{r}
+library(readxl)
+Standardized_PGS_AA <- read_excel("~/Standardized PGS AA.xlsx", col_types = c("text", "numeric", "numeric"))
+```
+
+```{r}
+Standardized_PGS_E <- read_excel("~/Standardized PGS E.xlsx", 
+col_types = c("text", "numeric", "numeric"))
+```
+
+```{r}
+HHID_PN = SRP_DATASET_FINAL[c(3)]
+PSS = SRP_DATASET_FINAL[c(47:49,56:58,68:70,80:82)]
+PSS = 5-PSS
+PSS = bind_cols(HHID_PN,PSS)
+PSS$Positive_social_support_combined = rowMeans(PSS[c(2:13)],na.rm = TRUE)
+PSS$Positive_social_support_spouse = rowMeans(PSS[c(2:4)],na.rm = TRUE)
+PSS$Positive_social_support_children = rowMeans(PSS[c(5:7)],na.rm = TRUE)
+PSS$Positive_social_support_family = rowMeans(PSS[c(8:10)],na.rm = TRUE)
+PSS$Positive_social_support_friends = rowMeans(PSS[c(11:13)],na.rm = TRUE)
+PSS = PSS[c(1,14:18)]
+```
+
+```{r}
+NSS = SRP_DATASET_FINAL[c(50:53,59:62,71:74,83:86)]
+NSS = 5-NSS
+NSS = bind_cols(HHID_PN,NSS)
+NSS$Negative_social_support_combined = rowMeans(NSS[c(2:17)],na.rm = TRUE)
+NSS$Negative_social_support_spouse = rowMeans(NSS[c(2:5)],na.rm = TRUE)
+NSS$Negative_social_support_children = rowMeans(NSS[c(6:9)],na.rm = TRUE)
+NSS$Negative_social_support_family = rowMeans(NSS[c(10:13)],na.rm = TRUE)
+NSS$Negative_social_support_friends = rowMeans(NSS[c(14:17)],na.rm = TRUE)
+NSS = NSS [c(18:22)]
+NG_DATASET_SRP = bind_cols(PSS,NSS)
+```
+
+```{r}
+Loneliness = SRP_DATASET_FINAL[c(3,106:116)]
+Loneliness_Rev = 4-Loneliness[c(2:4,6)]
+Loneliness = Loneliness[c(1,5,7:12)]
+Loneliness = bind_cols(Loneliness,Loneliness_Rev)
+Loneliness$Loneliness1 = rowMeans(Loneliness[c(2:12)])
+Loneliness = dplyr::select(Loneliness,Loneliness1)
+NG_DATASET_SRP = bind_cols(NG_DATASET_SRP,Loneliness)
+```
+
+```{r}
+Religiosity_Spirituality = SRP_DATASET_FINAL[c(3,164:167)]
+Religiosity_Spirituality$Religiosity_Spirituality1= rowMeans(Religiosity_Spirituality[c(2:5)])
+Religiosity_Spirituality = Religiosity_Spirituality[c(6)]
+NG_DATASET_SRP = bind_cols(NG_DATASET_SRP,Religiosity_Spirituality)
+```
+
+```{r}
+Personal_sense_control = SRP_DATASET_FINAL[c(3,125:134)]
+Personal_sense_control$Personal_control = rowMeans(Personal_sense_control[c(2:6)])
+Personal_sense_control$Mastery = rowMeans(Personal_sense_control[c(7:11)])
+Personal_sense_control = Personal_sense_control [c(12:13)]
+NG_DATASET_SRP = bind_cols(NG_DATASET_SRP,Personal_sense_control)
+```
+
+```{r}
+Optimism_Pessimism = SRP_DATASET_FINAL[c(3,96:101)]
+Optimism_Pessimism$Optimism = rowMeans(Optimism_Pessimism[c(3:5)])
+Optimism_Pessimism$Pessimism = rowMeans(Optimism_Pessimism[c(2,6:7)])
+Optimism_Pessimism = Optimism_Pessimism[c(8:9)]
+NG_DATASET_SRP = bind_cols(NG_DATASET_SRP,Optimism_Pessimism)
+```
+
+```{r}
+Hopelessness = SRP_DATASET_FINAL[c(3,102:105)]
+Hopelessness$Hopelessness1 = rowMeans(Hopelessness[c(2:5)])
+Hopelessness = Hopelessness[c(6)]
+NG_DATASET_SRP = bind_cols(NG_DATASET_SRP,Hopelessness)
+```
+
+```{r}
+Subjective_wellbeing = SRP_DATASET_FINAL[c(41:45)]
+Subjective_wellbeing$Subjective_wellbeing1 = rowMeans(Subjective_wellbeing)
+Subjective_wellbeing = Subjective_wellbeing[c(6)]
+NG_DATASET_SRP = bind_cols(NG_DATASET_SRP,Subjective_wellbeing)
+```
+
+```{r}
+Purpose_in_life <- SRP_DATASET_FINAL[c(242:248)]
+REV_Purpose_in_life <- 7-Purpose_in_life[c(2,4:5)]
+Purpose_in_life <- Purpose_in_life[c(1,3,6:7)]
+Purpose_in_life <- bind_cols(REV_Purpose_in_life,Purpose_in_life)
+Purpose_in_life$Purpose_in_life1 <- rowMeans(Purpose_in_life)
+Purpose_in_life <- Purpose_in_life[c(8)]
+NG_DATASET_SRP = bind_cols(NG_DATASET_SRP,Purpose_in_life)
+```
+
+Neuroticism
+```{r}
+Neuroticism <- SRP_DATASET_FINAL[c(202,206,210,215)]
+Rev_Neuro <- 5-Neuroticism[c(1:3)]
+Neuroticism <- Neuroticism[c(4)]
+Neuroticism <- bind_cols(Rev_Neuro, Neuroticism)
+Neuroticism$Neuroticism <- rowMeans(Neuroticism)
+Neuroticism <- Neuroticism[c(5)]
+NG_DATASET_SRP = bind_cols(NG_DATASET_SRP, Neuroticism)
+```
+
+Extraversion
+```{r}
+Extraversion <- SRP_DATASET_FINAL[c(199,204,208,219,225)]
+Extraversion <- 5-Extraversion
+Extraversion$Extraversion <- rowMeans(Extraversion)
+Extraversion <- Extraversion[c(6)]
+NG_DATASET_SRP = bind_cols(NG_DATASET_SRP,Extraversion)
+```
+
+Openness
+```{r}
+Openness <- SRP_DATASET_FINAL[c(211,213,217,218,221,226,227)]
+Openness <- 5 - Openness
+Openness$Openness <- rowMeans(Openness)
+Openness <- Openness[c(8)]
+NG_DATASET_SRP = bind_cols(NG_DATASET_SRP,Openness)
+```
+
+Agreeableness
+```{r}
+Agree <- SRP_DATASET_FINAL[c(198,205,209,214,223)]
+Agree <- 5-Agree
+Agree$Agreeableness <- rowMeans(Agree)
+Agree <- Agree[c(6)]
+NG_DATASET_SRP = bind_cols(NG_DATASET_SRP,Agree)
+```
+
+Conscientiousness
+```{r}
+Conscientiousness_REV <-
+SRP_DATASET_FINAL[c(203,207,212,216,224,228,229)]
+Conscientiousness_REV <- 5 - Conscientiousness_REV
+Conscientiousness <- SRP_DATASET_FINAL[c(201,220,222)]
+Conscientiousness <- bind_cols(Conscientiousness_REV,Conscientiousness)
+Conscientiousness$Conscientiousness<-rowMeans(Conscientiousness)
+Conscientiousness <- Conscientiousness [c(11)]
+NG_DATASET_SRP = bind_cols(NG_DATASET_SRP,Conscientiousness)
+```
+
+Height
+```{r}
+Height_final = Height_final[c(346)]
+NG_DATASET_SRP = bind_cols(NG_DATASET_SRP, Height_final)
+```
+
+```{r}
+NG_DATASET_SRP = bind_cols(NG_DATASET_SRP,EDU)
+```
+
+
+```{r}
+PC <- PGS_data[c(60:62,3:7)]
+colnames(PC) <- c("group","HHID_PN.x","resilience","PC1_5A","PC1_5B","PC1_5C","PC1_5D","PC1_5E")
+NG_DATASET_SRP = left_join(PC,NG_DATASET_SRP, by="HHID_PN.x")
+NG_DATASET_SRP_EA = filter(NG_DATASET_SRP,group=="EA")
+NG_DATASET_SRP_AA = filter(NG_DATASET_SRP,group=="AA")
+```
+
+```{r}
+NGV = c("Positive_social_support_combined",
+"Positive_social_support_spouse",
+"Positive_social_support_children",
+"Positive_social_support_family",
+"Positive_social_support_friends",
+"Negative_social_support_combined",
+"Negative_social_support_spouse",
+"Negative_social_support_children",
+"Negative_social_support_family",
+"Negative_social_support_friends",
+"Loneliness1",
+"Religiosity_Spirituality1",
+"Personal_control",
+"Mastery",
+"Optimism",
+"Pessimism",
+"Hopelessness1",
+"Subjective_wellbeing1",
+"Purpose_in_life1","DEGREE","Neuroticism" ,"Extraversion","Openness","Agreeableness","Conscientiousness","Height","DEGREE")
+```
+
+```{r}
+for (n in NGV){
+  assign(paste0(n, sep =""),subset(NG_DATASET_SRP_EA, select = c("resilience","PC1_5A","PC1_5B","PC1_5C","PC1_5D","PC1_5E",n)))
+}
+ngv.list.E <- list(Positive_social_support_combined	=Positive_social_support_combined,
+Positive_social_support_spouse	=Positive_social_support_spouse,
+Positive_social_support_children	=Positive_social_support_children,
+Positive_social_support_family	=Positive_social_support_family,
+Positive_social_support_friends	=Positive_social_support_friends,
+Negative_social_support_combined	=Negative_social_support_combined,
+Negative_social_support_spouse	=Negative_social_support_spouse,
+Negative_social_support_children	=Negative_social_support_children,
+Negative_social_support_family	=Negative_social_support_family,
+Negative_social_support_friends	=Negative_social_support_friends,
+Loneliness1	=Loneliness1,
+Religiosity_Spirituality1	=Religiosity_Spirituality1,
+Personal_control	=Personal_control,
+Mastery	=Mastery,
+Optimism	=Optimism,
+Pessimism	=Pessimism,
+Hopelessness1	=Hopelessness1,
+Subjective_wellbeing1	=Subjective_wellbeing1,
+Purpose_in_life1	=Purpose_in_life1,Neuroticism=Neuroticism,Extraversion=Extraversion,Openness=Openness,Agreeableness=Agreeableness,Conscientiousness=Conscientiousness,Height=Height,DEGREE=DEGREE)
+```
+
+```{r}
+for (n in NGV){
+  assign(paste0(n, sep =""),subset(NG_DATASET_SRP_AA, select = c("resilience","PC1_5A","PC1_5B","PC1_5C","PC1_5D","PC1_5E",n)))
+}
+ngv.list.AA <- list(Positive_social_support_combined	=Positive_social_support_combined,
+Positive_social_support_spouse	=Positive_social_support_spouse,
+Positive_social_support_children	=Positive_social_support_children,
+Positive_social_support_family	=Positive_social_support_family,
+Positive_social_support_friends	=Positive_social_support_friends,
+Negative_social_support_combined	=Negative_social_support_combined,
+Negative_social_support_spouse	=Negative_social_support_spouse,
+Negative_social_support_children	=Negative_social_support_children,
+Negative_social_support_family	=Negative_social_support_family,
+Negative_social_support_friends	=Negative_social_support_friends,
+Loneliness1	=Loneliness1,
+Religiosity_Spirituality1	=Religiosity_Spirituality1,
+Personal_control	=Personal_control,
+Mastery	=Mastery,
+Optimism	=Optimism,
+Pessimism	=Pessimism,
+Hopelessness1	=Hopelessness1,
+Subjective_wellbeing1	=Subjective_wellbeing1,
+Purpose_in_life1	=Purpose_in_life1,Neuroticism=Neuroticism,Extraversion=Extraversion,Openness=Openness,Agreeableness=Agreeableness,Conscientiousness=Conscientiousness,Height=Height,DEGREE=DEGREE)
+```
+
+```{r}
+ng.model.AA = lapply(ngv.list.AA, function(x)lm(resilience ~ x[[7]]+ PC1_5A + PC1_5B + PC1_5C + PC1_5D + PC1_5E, data = x))
+ng.model.E = lapply(ngv.list.E, function(x)lm(resilience ~ x[[7]]+ PC1_5A + PC1_5B + PC1_5C + PC1_5D + PC1_5E, data = x))
+``` 
+
+```{r}
+library(QuantPsyc)
+E_ng_coeff<-lapply(ng.model.E, function(x)lm.beta(x))#get standardized beta
+E_ng_coeff_sd <- lapply(E_ng_coeff,function(x)x[[1]])
+E_ng_coeff_sd <- as.data.frame(E_ng_coeff_sd)
+E_ng_coeff_sd <- t(E_ng_coeff_sd)
+```
+
+```{r}
+AA_ng_coeff<-lapply(ng.model.AA, function(x)lm.beta(x))#get standardized beta
+AA_ng_coeff_sd <- lapply(AA_ng_coeff,function(x)x[[1]])
+AA_ng_coeff_sd <- as.data.frame(AA_ng_coeff_sd)
+AA_ng_coeff_sd <- t(AA_ng_coeff_sd)
+```
+
+```{r}
+pvalues_ng_AA = lapply(ng.model.AA,function(x)summary(x)$coefficients[2,4])
+pvalues_ng_AA <- as.data.frame(pvalues_ng_AA)
+pvalues_ng_AA <- t(pvalues_ng_AA)
+pvalues_ng_AA<0.05
+```
+
+```{r}
+pvalues_ng_E = lapply(ng.model.E,function(x)summary(x)$coefficients[2,4])
+pvalues_ng_E <- as.data.frame(pvalues_ng_E)
+pvalues_ng_E <- t(pvalues_ng_E)
+pvalues_ng_E<0.05
+```
+
+```{r}
+SE_ng_E = lapply(ng.model.E,function(x)summary(x)$coefficients[2,2])
+SE_ng_E <- as.data.frame(SE_ng_E)
+SE_ng_E <- t(SE_ng_E)
+```
+
+```{r}
+SE_ng_AA = lapply(ng.model.AA,function(x)summary(x)$coefficients[2,2])
+SE_ng_AA <- as.data.frame(SE_ng_AA)
+SE_ng_AA <- t(SE_ng_AA)
+```
+
+```{r}
+library(readxl)
+NGV_EA <- read_excel("~/NGV EA.xlsx",col_types = c("text", "numeric","numeric"))
+NGV_AA <- read_excel("~/NGV AA.xlsx",col_types = c("text", "numeric","numeric"))
+```
