@@ -1,42 +1,91 @@
 ---
 title: "Data simulation for pre-registration"
 author: "Brianna Bucknor"
-date: "June 14, 2019"
-output: html_document
+date: "July 24, 2019"
+output: html_notebook
 ---
-lifetime trauma: 10 questions on a scale of 1-5
 ```{r}
-set.seed(15000)
-lifetime_trauma <- round(runif(n = 15000, min = 10, max = 50), digits = 0)
+library(dplyr)
 ```
 
-Stressful life events: 5 questions on a scale of 1-5
+lifetime trauma: 7 items (Q37a - Q37g) (Scale: 1= Yes, 5 = No)
 ```{r}
-set.seed(15000)
-SLE <- round(runif(n = 15000, min = 5, max = 20), digits = 0)
+set.seed(1500)
+LFT <- data.frame(replicate(7, sample(c(1,5), 15000,rep = TRUE)))
+colnames(LFT) <- c(paste0("Q37", letters[seq(from = 1, to = 7)]))
+```
+Endorsement Rate
+```{r}
+participants = nrow(LFT)
+colSums(LFT==1)
+colSums((LFT==1)/participants)>0.99
+#LFT <- select(LFT,-$) #if any of the items are "TRUE", use this line of code to reomve the item from the dataset
+```
+Stressful life events: 6 items (Q38-Q38h) (Scale: 1 = Yes, 5 = No)
+```{r}
+set.seed(1500)
+SLE <- data.frame(replicate(8, sample(c(1,5), 15000,rep = TRUE)))
+colnames(SLE) <- c(paste0("Q38", letters[seq(from = 1, to = 8)]))
+```
+Endorsement Rate
+```{r}
+colSums(SLE==1)
+colSums((SLE==1)/participants)>0.99
+#SLE <- select(SLE,-$) #if any of the items are "TRUE", use this line of code to reomve the item from the dataset
+```
+Ongoing chronic stressors: 8 items (Q35a - Q35h)(Scale: 1 = No, didn't happen, 2 = Yes, but not upsetting, 3 = Yes, somewhat upsetting, 4 = Yes, very upsetting)
+```{r}
+set.seed(1500)
+OCS <- data.frame(replicate(8, sample(1:5, 15000,rep = TRUE)))
+colnames(OCS) <- c(paste0("Q35", letters[seq(from = 1, to = 8)]))
+```
+Endorsement Rate
+```{r}
+colSums(OCS==1)
+colSums((OCS==1)/participants)>0.99
+#OCS <- select(OCS,-$) #if any of the items are "TRUE", use this line of code to reomve the item from the dataset
+```
+PANAS: 25 item (Q27a-Q27y)(Scale:  = Very much, 2 = Quite a bit, 3 = Moderately, 4 = A little, 5 = Not at all). Reverse coded as per documentation. 
+```{r}
+set.seed(1500)
+PANAS <- data.frame(replicate(25, sample(1:5, 15000,rep = TRUE)))
+colnames(PANAS) <- c(paste0("Q27", letters[seq(from = 1, to = 25)]))
+PANAS_NA <- select(PANAS, Q27a, Q27b, Q27e, Q27i, Q27j, Q27l, Q27m, Q27n,Q27o,Q27r, Q27s,Q27w)
+PANAS_PA <- select(PANAS, Q27c, Q27d, Q27f, Q27g, Q27h, Q27k, Q27p, Q27q, Q27t,Q27u, Q27v, Q27x,Q27y)
+PANAS_NA = 6 - PANAS_NA #reverse code
+PANAS <- bind_cols(PANAS_NA,PANAS_PA)
+```
+Endorsement Rate
+```{r}
+colSums(PANAS==1)
+colSums((PANAS==1)/participants)>0.99
+#PANAS <- select(PANAS,-$) #if any of the items are "TRUE", use this line of code to reomve the item from the dataset
+```
+Scoring PANAS. Items included in this chunk of code might change as a result of the endorsement rate. 
+```{r}
+PANAS$PANAS <- rowMeans(PANAS[,c("Q27c", "Q27d", "Q27f", "Q27g", "Q27h", "Q27k", "Q27p", "Q27q", "Q27t","Q27u", "Q27v", "Q27x","Q27y","Q27a", "Q27b", "Q27e", "Q27i", "Q27j", "Q27l", "Q27m", "Q27n", "Q27o","Q27r", "Q27s","Q27w")])
 ```
 
-Combination of lifetime truama (score range: 10-50) and stessful life events (score range: 5-20). 
+Create dataset for all the phenos. Address missingness
 ```{r}
-set.seed(15000)
-trauma_stress <- round(runif(n = 15000, min = 15, max = 70), digits = 0)
+Phenos <- bind_cols(LFT,SLE,OCS,PANAS)
+Phenos[, -which(colMeans(is.na(Phenos))>0.95)] #remove columns where more than 95% of participants didn't answer the question
 ```
-
-Q27g,Q27h,Q27i,Q27l,Q27o,Q27p,Q27q,Q27r from Q27 in LB questionaire map onto HRS core depressive symptoms(CES-D). Scale of 1-5 (Score range: 8- 40). Can be averaged over the 8 items
+Create age, sex, height, and race column in created data set
 ```{r}
-set.seed(15000)
-Depression <- round(runif(n = 15000, min = 8, max = 40))
+n_total = 15000
+Phenos$sex = rbinom(n_total, 1, 0.456)	# last number is proportion of 1s versus 0s (can get from documentation, or just make up)
+Phenos$age = runif(n_total, min = 50, max = 83)	# age range (50+)
+Phenos$race = rbinom(n_total,1,0.8) # 0 = AA 1 = White (PGS data has ~3000 AA & 12000 European)
 ```
 
 Simulate residuals
 ```{r}
-resilience <- as.data.frame(resid(lm(Depression ~trauma_stress)))
+resilience <- as.data.frame(resid(lm(PANAS~., data=Phenos)))
 colnames(resilience) <- c("resilience")
 ```
 
-
 ```{r}
-n_total = 15000
 pgs = c(paste0("pgs",seq(1:5))) #polygenic scores
 pcs = c(paste0("pc",seq(1:5)))	#ancestry principal components
 d = matrix(NA, nrow = n_total, ncol=length(pgs)+length(pcs))
@@ -45,36 +94,50 @@ colnames(d)<- c("pc1", "pc2", "pc3", "pc4", "pc5", "pgs1","pgs2","pgs3","pgs4","
 d<-as.data.frame(d)
 library(dplyr)
 d = dplyr:: bind_cols(resilience,d)
+d$ancestry = rbinom(n_total,1,0.8) # 0 = AA 1 = White (~3000 AA & 12000 White)
 ```
 
-Create age & sex column in created data set (i.e., "d")
+Seperate out races into two data frames to be analyzed seperately (like what was done with the HRS PGS data)
 ```{r}
-d$sex = rbinom(n_total, 1, 0.456)	# last number is proportion of 1s versus 0s (can get from documentation, or just make up)
-d$age = runif(n_total, min = 50, max = 83)	# age range (50+)
-d$height = runif(n_total, min = 50.25, max = 78.75) #retrieved from the 2006 Section I: physical measures 
-d$race = rbinom(n_total,1,0.8) # 0 = AA 1 = White (~3000 AA & 12000 White)
+d_AA <- as.data.frame(filter(d, ancestry == 0))
+d_E <- as.data.frame(filter(d, ancestry == 1))
 ```
 
+Use a for loop to start setting up the model to run the regression on. Here, each pgs of interest is being joined up with the columns needed for the model and grouped into a list. each item in the list is then named to match the pgs of interest. 
 ```{r}
 for (p in pgs){
-  assign(paste0(p, sep =""),subset(d, select = c("resilience", "age","sex", "height", "pc1", "pc2", "pc3","pc4", "pc5",p)))
+  assign(paste0(p, sep =""),subset(d_AA, select = c("resilience", "pc1", "pc2", "pc3","pc4", "pc5",p)))
 }
-pgs.list = list( pgs1= pgs1, pgs2 = pgs2, pgs3 = pgs3, pgs4 = pgs4, pgs5 = pgs5)
+pgs.list.AA = list( pgs1= pgs1, pgs2 = pgs2, pgs3 = pgs3, pgs4 = pgs4, pgs5 = pgs5)
 ```
 
-Perform regression analysis for each polygenic score, e.g. starting with pgs1
+Repeat the same process for the European group
 ```{r}
-model = lapply(pgs.list, function(x)lm(resilience ~ age + sex + height + pc1 + pc2 + pc3 + pc4 + pc5 + x[[10]], data = x))
+for (p in pgs){
+  assign(paste0(p, sep =""),subset(d_E, select = c("resilience","pc1", "pc2", "pc3","pc4", "pc5",p)))
+}
+pgs.list.E = list( pgs1= pgs1, pgs2 = pgs2, pgs3 = pgs3, pgs4 = pgs4, pgs5 = pgs5)
 ```
 
-
+export results of regression as a txt file
 ```{r}
-for (i in seq_along(model)){
-  filename = paste0(names(model)[[i]],"_model", ".txt")
+for (i in seq_along(model.AA)){
+  filename = paste0(names(model.AA)[[i]],"_model_AA", ".txt")
   sink(file= filename)
-  print(colnames(pgs.list[[i]])[10])
-  print(summary(model[[i]]))
-  }
+  print(paste0("X[[7]]=", colnames(pgs.list.AA[[i]])[7]))  
+  print(summary(model.AA[[i]]))
+  sink()
+}
+```
+
+```{r}
+for (i in seq_along(model.E)){
+  filename = paste0(names(model.E)[[i]],"_model_E", ".txt")
+  sink(file= filename)
+  print(paste0("X[[10]]=", colnames(pgs.list.E[[i]])[10]))
+  print(summary(model.E[[i]]))
+  sink()
+}
 ```
 
 
